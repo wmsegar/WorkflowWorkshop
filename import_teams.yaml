@@ -55,19 +55,24 @@ workflow:
                       description: team.description,
                       identifier: team.id,
                       responsibilities: {
-                        development: team.responsibiliy === "development",
+                        development: team.responsibility === "development",
                         security: false,
-                        operations: team.responsibiliy === "infrastructure",
+                        operations: team.responsibility === "infrastructure",
                         infrastructure: false,
                         lineOfBusiness: false
                       },
                       contactDetails: [
                         {
-                          integrationType: "EMAIL",
-                          email: team.email
+                          integrationType: "SLACK",
+                          channel: team.slack
                         }
                       ],
-                      links: [],
+                      links: [
+                        {
+                          linkType: "URL",
+                          url: team.links
+                        }
+                      ],
                       additionalInformation: []
                     },
                     externalId: team.id
