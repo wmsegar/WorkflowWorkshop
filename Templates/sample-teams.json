@@ -15,6 +15,14 @@
             "responsibility": "development",
             "slack": "#team-payments",
             "links": "https://help.payments.example.com"
+        },
+        {
+            "name": "Team Data Platform",
+            "id": "team-platform",
+            "description": "Responsible for the core platform data services",
+            "responsibility": "infrastructure",
+            "slack": "#team-platform",
+            "links": "https://help.platform.example.com"
         }
     ]
 }
