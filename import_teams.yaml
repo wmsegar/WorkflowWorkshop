@@ -34,7 +34,7 @@ workflow:
       input:
         script: >-
           const apiUrl =
-          'https://raw.githubusercontent.com/wmsegar/WorkflowWorkshop/main/samples/Templates/sample-teams.json';
+          'https://raw.githubusercontent.com/wmsegar/WorkflowWorkshop/main/Templates/sample-teams.json';
 
 
           export default async function ({ execution_id }) {
