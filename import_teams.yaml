@@ -64,7 +64,7 @@ workflow:
                       contactDetails: [
                         {
                           integrationType: "SLACK",
-                          channel: team.slack
+                          slackChannel: team.slack
                         }
                       ],
                       links: [
