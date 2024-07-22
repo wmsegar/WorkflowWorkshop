@@ -5,7 +5,8 @@
             "id": "team-frontend",
             "description": "Responsible for frontend and ingress",
             "responsibility": "development",
-            "slack": "#team-frontend"
+            "slack": "#team-frontend",
+            "links": "https://help.frontend.example.com"
         },
         {
             "name": "Team Payments",
