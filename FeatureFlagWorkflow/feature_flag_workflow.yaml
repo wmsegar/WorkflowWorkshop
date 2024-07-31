@@ -1,0 +1,338 @@
+metadata:
+  version: "1"
+  dependencies:
+    apps:
+      - id: dynatrace.automations
+        version: ^1.700.0
+      - id: dynatrace.ownership
+        version: ^1.7.2
+  inputs: []
+workflow:
+  title: Enable Easytrade Feature Flag
+  tasks:
+    ingest_bizevent:
+      name: ingest_bizevent
+      description: ingest bizevent with status of feature flag
+      action: dynatrace.automations:run-javascript
+      input:
+        script: >-
+          // optional import of sdk modules
+
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+          import { businessEventsClient } from
+          '@dynatrace-sdk/client-classic-environment-v2';
+
+
+          export default async function ({ execution_id }) {
+
+
+          const bizevent = {
+            specversion: '1.0',
+            source: 'easytrade.feature.flag',
+            id: crypto.randomUUID().toString(),
+            type: 'easytrade.credit_card_meltdown.enabled',
+            data: {
+              enabled: 'true',
+            },
+          };
+
+
+          businessEventsClient
+            .ingest({
+              body: bizevent,
+              type: 'application/cloudevent+json',
+            })
+            .then(() => console.log('Event ingested'))
+            .catch((e) => console.error('Failed to ingest event: ' + e));
+          }
+      position:
+        x: -1
+        y: 2
+      predecessors:
+        - enable_credit_card_ff
+      conditions:
+        states:
+          enable_credit_card_ff: OK
+    check_if_ff_worked:
+      name: check_if_ff_worked
+      description: Checks if order service is still running correctly after feature flag
+      action: dynatrace.automations:http-function
+      input:
+        url: http://REPLACE_WITH_URL/credit-card-order-service/v1/orders/5/status/latest
+        method: GET
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+        failOnResponseCodes: 500,502
+      position:
+        x: 0
+        y: 2
+      predecessors:
+        - enable_credit_card_ff
+      conditions:
+        states:
+          enable_credit_card_ff: OK
+    reset_feature_flag:
+      name: reset_feature_flag
+      description: Issue an HTTP request to any API
+      action: dynatrace.automations:http-function
+      input:
+        url: http://REPLACE_WITH_URL/feature-flag-service/v1/flags/credit_card_meltdown
+        method: PUT
+        headers:
+          accept: application/json
+          Content-Type: application/json
+        payload: |-
+          {
+            "enabled": false
+          }
+        failOnResponseCodes: 400-599
+      position:
+        x: 0
+        y: 5
+      predecessors:
+        - get_application_owners
+      conditions:
+        states:
+          get_application_owners: OK
+    enable_credit_card_ff:
+      name: enable_credit_card_ff
+      description: Sends request to FF API
+      action: dynatrace.automations:http-function
+      input:
+        url: http://REPLACE_WITH_URL/feature-flag-service/v1/flags/credit_card_meltdown
+        method: PUT
+        headers:
+          accept: application/json
+          Content-Type: application/json
+        payload: |-
+          {
+            "enabled": true
+          }
+        failOnResponseCodes: 400-599
+      position:
+        x: 0
+        y: 1
+      predecessors: []
+    get_application_owners:
+      name: get_application_owners
+      description: Retrieves owners from Entities and Team identifiers.
+      action: dynatrace.ownership:get-ownership-from-entity
+      input:
+        entityIds: '{{result("execute_query_to_determine_impacted_entity").records[0].id}}'
+      customSampleResult:
+        jira: []
+        email: []
+        owners:
+          - id: vu9U3hXa3q0AAAABABdidWlsdGluOm93bmVyc2hpcC50ZWFtcwAGdGVuYW50AAZ0ZW5hbnQAJDJiMDEyMTAwLTU5NjAtM2M3MS1hMGU1LTZiMzllOTVlZTdiZr7vVN4V2t6t
+            name: Team Payments
+            links:
+              - url: https://help.payments.example.com
+                linkType: URL
+            identifier: team-payments
+            description: Responsible for the order and payments services
+            contactDetails:
+              - slackChannel: "#team-payments"
+                integrationType: SLACK
+            responsibilities:
+              security: false
+              operations: false
+              development: true
+              infrastructure: false
+              lineOfBusiness: false
+            isValidIdentifier: true
+            additionalInformation: []
+            supplementaryIdentifiers: []
+            supplementaryIdentifierUsed: false
+        msTeams: []
+        slackChannels:
+          - entities:
+              - CLOUD_APPLICATION-7E1FF7388868472A
+            teamName: Team Payments
+            slackChannel: "#team-payments"
+      position:
+        x: 0
+        y: 4
+      predecessors:
+        - execute_query_to_determine_impacted_entity
+      conditions:
+        states:
+          execute_query_to_determine_impacted_entity: OK
+    send_event_ff_disabled:
+      name: send_event_ff_disabled
+      description: Send a bizevent that the feature flag has been disabled
+      action: dynatrace.automations:run-javascript
+      input:
+        script: >-
+          // optional import of sdk modules
+
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+          import { businessEventsClient } from
+          '@dynatrace-sdk/client-classic-environment-v2';
+
+
+          export default async function ({ execution_id }) {
+
+
+          const bizevent = {
+            specversion: '1.0',
+            source: 'easytrade.feature.flag',
+            id: crypto.randomUUID().toString(),
+            type: 'easytrade.credit_card_meltdown.disabled',
+            data: {
+              enabled: 'false',
+            },
+          };
+
+
+          businessEventsClient
+            .ingest({
+              body: bizevent,
+              type: 'application/cloudevent+json',
+            })
+            .then(() => console.log('Event ingested'))
+            .catch((e) => console.error('Failed to ingest event: ' + e));
+          }
+      position:
+        x: 0
+        y: 6
+      predecessors:
+        - reset_feature_flag
+      conditions:
+        states:
+          reset_feature_flag: OK
+    create_a_problem_if_ff_failed:
+      name: create_a_problem_if_ff_failed
+      description: Build a custom task running js Code
+      action: dynatrace.automations:run-javascript
+      input:
+        script: >-
+          // optional import of sdk modules
+
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+          import { eventsClient } from
+          '@dynatrace-sdk/client-classic-environment-v2';
+
+
+          export default async function ({ execution_id }) {
+
+            const ex = await execution(execution_id)
+            const owners_result = await ex.result('get_application_owners')
+            const owners = owners_result.owners[0].name
+            const slackChannel = owners_result.slackChannels[0].teamName
+
+            const data = await eventsClient.createEvent({
+              body: { 
+                      title: "Credit card feature flag enabled and caused application error",
+                      eventType: "CUSTOM_ALERT",
+                      properties: {
+                        owner: owners,
+                        slackChannel: slackChannel
+                      }
+                    },
+            });
+
+            return data
+          }
+      position:
+        x: -1
+        y: 5
+      predecessors:
+        - get_application_owners
+      conditions:
+        states:
+          get_application_owners: OK
+    execute_query_to_determine_impacted_entity:
+      name: execute_query_to_determine_impacted_entity
+      description: executes dql query to determine entity ids of impacted deployments
+      action: dynatrace.automations:execute-dql-query
+      input:
+        query: >-
+          fetch dt.entity.cloud_application
+
+          | filter in(id,
+          classicEntitySelector("type(CLOUD_APPLICATION),entityName(credit-card-order)"))
+
+          | fields id, kubernetesAnnotations
+
+          | fieldsFlatten kubernetesAnnotations
+
+          | filter kubernetesAnnotations.owner != ""
+      customSampleResult:
+        types:
+          - mappings:
+              id:
+                type: string
+              kubernetesAnnotations:
+                type: record
+                types:
+                  - mappings:
+                      owner:
+                        type: string
+                      deployment.kubernetes.io/revision:
+                        type: string
+              kubernetesAnnotations.owner:
+                type: string
+              kubernetesAnnotations.deployment.kubernetes.io/revision:
+                type: string
+            indexRange:
+              - 0
+              - 0
+        records:
+          - id: CLOUD_APPLICATION-7E1FF7388868472A
+            kubernetesAnnotations:
+              owner: team-payments
+              deployment.kubernetes.io/revision: "2"
+            kubernetesAnnotations.owner: team-payments
+            kubernetesAnnotations.deployment.kubernetes.io/revision: "2"
+        metadata:
+          grail:
+            query: >-
+              fetch dt.entity.cloud_application
+
+              | filter in(id,
+              classicEntitySelector("type(CLOUD_APPLICATION),entityName(credit-card-order)"))
+
+              | fields id, kubernetesAnnotations
+
+              | fieldsFlatten kubernetesAnnotations
+
+              | filter kubernetesAnnotations.owner != ""
+            locale: und
+            queryId: 0b687303-2717-4c07-a266-c3366682368e
+            sampled: false
+            timezone: America/New_York
+            dqlVersion: V1_0
+            scannedBytes: 0
+            notifications: []
+            canonicalQuery: >-
+              fetch dt.entity.cloud_application
+
+              | filter in(id,
+              classicEntitySelector("type(CLOUD_APPLICATION),entityName(credit-card-order)"))
+
+              | fields id, kubernetesAnnotations
+
+              | fieldsFlatten kubernetesAnnotations
+
+              | filter kubernetesAnnotations.owner != ""
+            scannedRecords: 2
+            analysisTimeframe:
+              end: 2024-07-23T15:27:24.196Z
+              start: 2024-07-23T15:22:24.196Z
+            scannedDataPoints: 0
+            executionTimeMilliseconds: 52
+      position:
+        x: 0
+        y: 3
+      predecessors:
+        - check_if_ff_worked
+      conditions:
+        states:
+          check_if_ff_worked: ERROR
+  description: ""
+  trigger: {}
+  schemaVersion: 3
